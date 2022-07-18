@@ -1,0 +1,501 @@
+from mysql.connector import connection, errorcode;
+import mysql.connector;
+from auxiliary import colors as c;
+from auxiliary import custom_exceptions as ce;
+from factura import Factura;
+
+class Paciente():
+    """
+    Modelo para Paciente
+    Parámetros: idPaciente (int - required) | nombre (str - required) | apellidos (str) |
+    cliente_preferencial (bool) | desc_dolencia (str) | desc_tratamiento (str)
+    Métodos mágicos: __str__ (devuelve nombre+apellidos)
+    Métodos: 
+    """
+    def __init__(self, idPaciente:int, nombre:str, apellidos:str="", 
+    cliente_preferencial:bool|int=False, desc_dolencia:str="", desc_tratamiento:str="", facturas:list[Factura]=[]) -> None:
+        self.idPaciente = 1
+        self.nombre = nombre;
+        self.apellidos = apellidos;
+        self.cliente_preferencial = cliente_preferencial;
+        self.desc_dolencia = desc_dolencia;
+        self.desc_tratamiento = desc_tratamiento;
+
+    #region Métodos mágicos
+    def __str__(self) -> str:
+        return f"{c.BRIGHTGREEN}NOMBRE COMPLETO DEL PACIENTE: \n{self.nombre} {self.apellidos}{c.ENDC}";
+    #endregion
+
+    #region Properties
+    @property
+    def idPaciente(self):
+        return self.__idPaciente;
+    @idPaciente.setter
+    def idPaciente(self, new_id:int) -> None:
+        """
+        Establecer el nuevo ID en la base de datos (asegurandose que ese ID no este ya ocupado)
+        :param int: new_id
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | ID_Already_Exists | Exception
+        """
+        # Mi logica diria de no poder cambiar el ID de algo autogenerado pero, por si acaso, aqui esta
+        try:
+            # Creamos la conexion a la DB
+            # Ignora que la password sea insegura
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y saber si el ID ya existe
+            cursor = db.cursor();
+            select_sql = "SELECT idPaciente FROM paciente";
+            cursor.execute(select_sql);
+            results = cursor.fetchall();
+
+            # Recorremos las rows
+            for row in results:
+                if (row[0] == new_id):
+                    raise ce.ID_Already_Exists;
+            
+            # Si todo ha salido bien, lo cambiamos en la DB y cerramos conexion
+            update_sql = f"UPDATE paciente SET idPaciente = {new_id} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+            # Le cambio el valor a la instancia por si acaso
+            self.idPaciente = new_id;
+            print(f"{c.BRIGHTGREEN}CAMPO 'idPaciente' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except ce.ID_Already_Exists:
+            print(f"{c.BRIGHTRED}MODIFICACIÓN DENEGADA: EL ID YA ESTÁ EN USO{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'idPaciente'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+
+    @property
+    def nombre(self):
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = f"SELECT nombre FROM paciente WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(select_sql);
+            result = cursor.fetchone();
+            db.close();
+
+            return result[0];
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    @nombre.setter
+    def nombre(self, new_nombre:str) -> None:
+        """
+        Updatear el nombre del paciente per se segun una ID
+        :param str: new_nombre
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | ER_DATA_TOO_LONG | Exception
+        """
+        try:
+            # Creamos la conexion a la DB
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL para actualizar el campo
+            cursor = db.cursor();
+            update_sql = f"UPDATE paciente SET nombre = {new_nombre} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+            # Le cambio el valor a la instancia por si acaso
+            self.nombre = new_nombre;
+            print(f"{c.BRIGHTGREEN}CAMPO 'nombre' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DEL PARÁMETRO ES DEMASIADO LARGA{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'nombre'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+
+    @property
+    def apellidos(self):
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = f"SELECT apellidos FROM paciente WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(select_sql);
+            result = cursor.fetchone();
+            db.close();
+
+            return result;
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    @apellidos.setter
+    def apellidos(self, new_apellidos:str):
+        """
+        Updatear los apellidos del paciente per se segun una ID
+        :param str: new_apellidos
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | ER_DATA_TOO_LONG | Exception
+        """
+        try:
+            # Creamos la conexion a la DB
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL para actualizar el campo
+            cursor = db.cursor();
+            update_sql = f"UPDATE paciente SET apellidos = {new_apellidos} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+             # Le cambio el valor a la instancia por si acaso
+            self.apellidos = new_apellidos;
+            print(f"{c.BRIGHTGREEN}CAMPO 'apellidos' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DEL PARÁMETRO ES DEMASIADO LARGA{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'apellidos'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+    
+    @property
+    def cliente_preferencial(self):
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = f"SELECT clientePreferencial FROM paciente WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(select_sql);
+            result = cursor.fetchone();
+            db.close();
+
+            return result;
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    @cliente_preferencial.setter
+    def cliente_preferencial(self, preferencial:bool|int):
+        """
+        Updatear el campo cliente_preferencial del paciente per se segun una ID
+        :param bool|int: preferencial
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | Exception
+        """
+        try:
+            # Creamos la conexion a la DB
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL para actualizar el campo
+            cursor = db.cursor();
+            update_sql = f"UPDATE paciente SET cliente_preferencial = {preferencial} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+            # Le cambio el valor a la instancia por si acaso
+            self.cliente_preferencial = preferencial;
+            print(f"{c.BRIGHTGREEN}CAMPO 'cliente_preferencial' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_WARN_DATA_OUT_OF_RANGE):
+                # Todos los valores de 1 a 255 son considerados true, el 0 es el false (mysql trata boolean como tinyint)
+                print(f"{c.BRIGHTRED}ERROR: VALOR NO PERMITIDO{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'cliente_preferencial'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+    
+    @property
+    def desc_dolencia(self):
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = f"SELECT desc_dolencia FROM paciente WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(select_sql);
+            result = cursor.fetchone();
+            db.close();
+
+            return result;
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    @desc_dolencia.setter
+    def desc_dolencia(self, new_desc_dolencia:str):
+        """
+        Updatear la dolencia del paciente per se segun una ID
+        :param str: new_desc_dolencia
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | ER_DATA_TOO_LONG | Exception
+        """
+        try:
+            # Creamos la conexion a la DB
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL para actualizar el campo
+            cursor = db.cursor();
+            update_sql = f"UPDATE paciente SET desc_dolencia = {new_desc_dolencia} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+            # Le cambio el valor a la instancia por si acaso
+            self.desc_dolencia = new_desc_dolencia;
+            print(f"{c.BRIGHTGREEN}CAMPO 'desc_dolencia' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DEL PARÁMETRO ES DEMASIADO LARGA{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'apellidos'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+
+    @property
+    def desc_tratamiento(self):
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = f"SELECT desc_tratamiento FROM paciente WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(select_sql);
+            result = cursor.fetchone();
+            db.close();
+
+            return result;
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    @desc_tratamiento.setter
+    def desc_tratamiento(self, new_desc_tratamiento:str):
+        """
+        Updatear el tratamiento del paciente per se segun una ID
+        :param str: new_desc_tratamiento
+        :raises: ER_ACCESS_DENIED_ERROR | ER_BAD_DB_ERROR | ER_DATA_TOO_LONG | Exception
+        """
+        try:
+            # Creamos la conexion a la DB
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL para actualizar el campo
+            cursor = db.cursor();
+            update_sql = f"UPDATE paciente SET desc_tratamiento = {new_desc_tratamiento} WHERE idPaciente = {self.idPaciente}";
+            cursor.execute(update_sql);
+            db.commit();
+            # Le cambio el valor a la instancia por si acaso
+            self.desc_tratamiento = new_desc_tratamiento;
+            print(f"{c.BRIGHTGREEN}CAMPO 'desc_tratamiento' MODIFICADO SATISFACTORIAMENTE\n{cursor.rowcount} REGISTRO(S) AFECTADO(S)!{c.ENDC}");
+            db.close();
+
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DEL PARÁMETRO ES DEMASIADO LARGA{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+        except Exception:
+            print(f"{c.BRIGHTRED}ERROR EN LA OPERACIÓN DE MODIFICACIÓN DEL CAMPO 'apellidos'. CONTACTE CON SU ADMINISTRADOR MÁS CERCANO{c.ENDC}");
+    #endregion
+
+    #region Metodos
+    def añadir_paciente(self):
+        """
+        Método que añade un paciente a la base de datos segun la instancia creada
+        """
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y commitearla
+            cursor = db.cursor();
+            # Usamos scaped values para evitar SQL Injection
+            insert_sql = "INSERT INTO paciente (nombre, apellidos, clientePreferencial, desc_dolencia, desc_tratamiento) VALUES ('%s', '%s', %s, '%s', '%s');"
+            vals = (self.nombre, self.apellidos, self.cliente_preferencial, self.desc_dolencia, self.desc_tratamiento);
+            cursor.execute(insert_sql, vals);
+            cursor.commit();
+
+            db.close();
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_WARN_DATA_OUT_OF_RANGE):
+                print(f"{c.BRIGHTRED}ERROR: ALGÚN PARÁMETRO SE SALE DEL RANGO ACEPTABLE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DE ALGÚN PARÁMETRO ES DEMASIADO LARGO{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+
+    def modificar_paciente(self):
+        """
+        Método que modifica un paciente segun la instancia creada
+        """
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y updatear
+            cursor = db.cursor();
+            update_sql = "UPDATE paciente SET nombre='%s', apellidos='%s', clientePreferencial=%s, desc_dolencia='%s', desc_tratamiento='%s' WHERE idPaciente = %s";
+            vals = (self.nombre, self.apellidos, self.cliente_preferencial, self.desc_dolencia, self.desc_tratamiento, self.idPaciente);
+            cursor.execute(update_sql, vals);
+            cursor.commit();
+
+            db.close();
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            elif (err.errno == errorcode.ER_WARN_DATA_OUT_OF_RANGE):
+                print(f"{c.BRIGHTRED}ERROR: ALGÚN PARÁMETRO SE SALE DEL RANGO ACEPTABLE{c.ENDC}");
+            elif (err.errno == errorcode.ER_DATA_TOO_LONG):
+                print(f"{c.BRIGHTRED}ERROR: LA LONGITUD DE ALGÚN PARÁMETRO ES DEMASIADO LARGO{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+
+    @classmethod
+    def mostrar_pacientes(cls):
+        """
+        Método que muestra los pacientes (clase, ya que muestra todos sin condición)
+        """
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            select_sql = "SELECT * FROM paciente";
+            cursor.execute(select_sql);
+            result = cursor.fetchall();
+
+            # Vamos de fila en fila
+            for row in result:
+                print(f"{c.BRIGHTGREEN}{row}{c.ENDC}");
+
+            db.close();
+
+            return result;
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+
+    @classmethod
+    def mostrar_paciente_por_campo(cls, pnombre:str="", papellidos:str="", pcliente_preferencial:bool|int=None, pdesc_dolencia:str="", pdesc_tratamiento:str=""):
+        """
+        Método que muestra un paciente según el parámetro dado
+        """
+        if (len(pnombre) == 0 or len(papellidos) == 0 or pcliente_preferencial == None or len(pdesc_dolencia) == 0 or len(pdesc_tratamiento) == 0):
+            print(f"{c.BRIGHTRED} ERROR: TODOS LOS PARÁMETROS SON NULOS{c.ENDC}");
+        else:
+            try:
+                db = connection.MySQLConnection(user='root', password='root',
+                host='127.0.0.1', database='clinica');
+
+                # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+                cursor = db.cursor();
+
+                select_sql = "SELECT * FROM paciente WHERE %s = %s";
+                cursor.execute(select_sql);
+                result = cursor.fetchall();
+
+                # Vamos de fila en fila
+                for row in result:
+                    print(f"{c.BRIGHTGREEN}{row}{c.ENDC}");
+
+                db.close();
+
+                return result;
+            except mysql.connector.Error as err:
+                if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                    print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+                elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                    print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+                else:
+                    print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+
+    def dar_de_alta_paciente(self):
+        """
+        Método para dar de alta un paciente (borrarlo de la DB):
+        """
+        try:
+            db = connection.MySQLConnection(user='root', password='root',
+            host='127.0.0.1', database='clinica');
+
+            # Creamos el cursor para ejecutar la secuencia SQL y obtener la data
+            cursor = db.cursor();
+            delete_sql = "DELETE FROM paciente WHERE idPaciente = %s";
+            vals = (self.idPaciente);
+            cursor.execute(delete_sql, vals);
+            db.commit();
+
+            db.close();
+        except mysql.connector.Error as err:
+            if (err.errno == errorcode.ER_ACCESS_DENIED_ERROR):
+                print(f"{c.BRIGHTRED}ACCESO DENEGADO: INSUFICIENTES PERMISOS{c.ENDC}");
+            elif (err.errno == errorcode.ER_BAD_DB_ERROR):
+                print(f"{c.BRIGHTRED}ERROR: LA DB NO EXISTE{c.ENDC}");
+            else:
+                print(f"{c.BRIGHTRED}UNHANDLED ERROR: {err}{c.ENDC}");
+    #endregion
